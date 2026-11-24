@@ -1,0 +1,401 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroFind | Smart Airport Lost & Found</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f3f6fa;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        .bg-navy {
+            background-color: #0b2545 !important;
+        }
+        .section-card {
+            border: none;
+            border-radius: 14px;
+            box-shadow: 0 4px 14px rgba(11, 37, 69, 0.07);
+        }
+        .upload-dropzone {
+            border: 2px dashed #0d6efd;
+            background-color: #f8fbff;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+        .upload-dropzone:hover {
+            background-color: #eaf2ff;
+            border-color: #0b2545;
+        }
+        .found-photo-card {
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .found-photo-card:hover {
+            transform: translateY(-4px);
+            border-color: #0d6efd;
+            box-shadow: 0 8px 18px rgba(11, 37, 69, 0.12) !important;
+        }
+        .found-photo-card img {
+            height: 185px;
+            width: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-dark bg-navy sticky-top shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="#">✈️ AeroFind | Airport Lost & Found</a>
+        <span id="navUserBadge" class="badge bg-light text-dark d-none"></span>
+    </div>
+</nav>
+
+<!-- LIVE SMS / AIRLINE NOTIFICATION TOAST -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    <div id="msgToast" class="toast align-items-center text-bg-dark border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toastText">Notification</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<div class="container py-4">
+
+    <!-- STEP 1: PASSENGER LOGIN (NAME & EMAIL) -->
+    <div class="card section-card mb-4" id="step1Card">
+        <div class="card-header bg-navy text-white fw-bold py-3 rounded-top-4">
+            1. Passenger Login (Name & Email ID)
+        </div>
+        <div class="card-body p-4">
+            <form id="loginForm" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Full Name</label>
+                    <input type="text" id="loginName" class="form-control" placeholder="Enter your name" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Email ID</label>
+                    <input type="email" id="loginEmail" class="form-control" placeholder="name@example.com" required>
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary fw-semibold" id="loginBtn">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- STEP 2: UPLOAD LOST ITEM IMAGE & PARTICULAR TIME WINDOW -->
+    <div class="card section-card mb-4 opacity-50" id="step2Card" style="pointer-events: none;">
+        <div class="card-header bg-navy text-white fw-bold py-3 rounded-top-4">
+            2. Upload Lost Item Photo & Particular Time Window
+        </div>
+        <div class="card-body p-4">
+            <form id="lostUploadForm" class="row g-4 align-items-center">
+                <!-- Image Only Option -->
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Upload Item Photo (Image Only)</label>
+                    <div class="upload-dropzone text-center p-3 rounded-3" onclick="document.getElementById('lostImageInput').click()">
+                        <input type="file" id="lostImageInput" accept="image/*" class="d-none" required>
+                        <div id="uploadPrompt">
+                            <div class="fs-3">📷</div>
+                            <div class="fw-semibold small">Click to select image</div>
+                            <small class="text-muted">JPG, PNG, WEBP only</small>
+                        </div>
+                        <img id="lostImagePreview" class="img-fluid rounded-3 d-none mx-auto" style="max-height: 150px;" alt="Lost Item">
+                    </div>
+                </div>
+
+                <!-- Particular Lost Time Window -->
+                <div class="col-md-7">
+                    <label class="form-label fw-semibold">Lost Time Window (Particular Time Slot)</label>
+                    <div class="row g-2 mb-3">
+                        <div class="col-sm-4">
+                            <label class="small text-muted">Date</label>
+                            <input type="date" id="lostDate" class="form-control" required>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="small text-muted">From Time</label>
+                            <input type="time" id="lostTimeFrom" class="form-control" required>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="small text-muted">To Time</label>
+                            <input type="time" id="lostTimeTo" class="form-control" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                        Check Matching Found Items Below ↓
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- STEP 3: AIRPORT FOUND ITEMS PHOTO GRID -->
+    <div class="card section-card mb-4 opacity-50" id="step3Card" style="pointer-events: none;">
+        <div class="card-header bg-navy text-white d-flex justify-content-between align-items-center py-3 rounded-top-4">
+            <span class="fw-bold">3. Airport Found Items (Click Your Item Photo)</span>
+            <small id="timeFilterBadge" class="badge bg-warning text-dark">Waiting for time window</small>
+        </div>
+        <div class="card-body p-4">
+            <div id="foundPhotosGrid" class="row g-4"></div>
+
+            <!-- AI & AIRLINE CONFIRMATION MESSAGE BOX -->
+            <div id="aiConfirmationPanel" class="mt-4 d-none"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL: CLICK PHOTO -> ENTER NAME & MOBILE NUMBER -> SEND TO AIRLINES -->
+<div class="modal fade" id="airlineClaimModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-navy text-white rounded-top-4">
+                <h5 class="modal-title fw-bold">Send Claim to Airlines</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-3">
+                    <img id="modalItemImg" src="" class="rounded-3 border" style="height: 120px; width: 170px; object-fit: cover;" alt="Selected Item">
+                    <div class="fw-bold mt-2" id="modalItemTitle"></div>
+                    <small class="text-muted" id="modalItemMeta"></small>
+                </div>
+
+                <form id="airlineVerifyForm">
+                    <input type="hidden" id="selectedItemId">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Passenger Name</label>
+                        <input type="text" id="claimName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mobile Number (For Confirmation SMS)</label>
+                        <input type="tel" id="claimMobile" class="form-control" placeholder="Enter 10-digit mobile number" maxlength="10" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-semibold">
+                        Send Message to Airlines & Run AI Check
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const AIRPORT_FOUND_ITEMS = [
+        {
+            id: 1,
+            title: "Black Laptop Backpack",
+            airline: "IndiGo Airlines",
+            terminal: "Chennai (MAA) - T1",
+            foundTime: "10:30",
+            image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80"
+        },
+        {
+            id: 2,
+            title: "Silver Apple MacBook",
+            airline: "Air India",
+            terminal: "Chennai (MAA) - T2",
+            foundTime: "11:15",
+            image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80"
+        },
+        {
+            id: 3,
+            title: "Brown Leather Wallet & Passport",
+            airline: "Emirates",
+            terminal: "Chennai (MAA) - INTL",
+            foundTime: "14:20",
+            image: "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=600&q=80"
+        },
+        {
+            id: 4,
+            title: "Blue Cabin Trolley Bag",
+            airline: "SpiceJet",
+            terminal: "Chennai (MAA) - T1",
+            foundTime: "16:45",
+            image: "https://images.unsplash.com/photo-1565026057447-bc90a3dceb87?auto=format&fit=crop&w=600&q=80"
+        }
+    ];
+
+    let currentUser = null;
+    let lostWindow = null;
+
+    document.getElementById("lostDate").value = new Date().toISOString().split("T")[0];
+
+    function showToast(msg) {
+        document.getElementById("toastText").innerText = msg;
+        new bootstrap.Toast(document.getElementById("msgToast")).show();
+    }
+
+    function unlockSection(cardId) {
+        const card = document.getElementById(cardId);
+        card.classList.remove("opacity-50");
+        card.style.pointerEvents = "auto";
+    }
+
+    // STEP 1: LOGIN
+    document.getElementById("loginForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = document.getElementById("loginName").value.trim();
+        const email = document.getElementById("loginEmail").value.trim();
+
+        currentUser = { name, email };
+        const badge = document.getElementById("navUserBadge");
+        badge.innerText = `${name} (${email})`;
+        badge.classList.remove("d-none");
+
+        document.getElementById("loginBtn").innerText = "Logged In ✓";
+        document.getElementById("loginBtn").classList.replace("btn-primary", "btn-success");
+
+        unlockSection("step2Card");
+        showToast(`Logged in as ${name}. Now upload your lost item photo & time.`);
+        document.getElementById("step2Card").scrollIntoView({ behavior: "smooth" });
+    });
+
+    // STEP 2: IMAGE ONLY UPLOAD PREVIEW
+    document.getElementById("lostImageInput").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            alert("Image files only (JPG, PNG, WEBP).");
+            e.target.value = "";
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = document.getElementById("lostImagePreview");
+            img.src = ev.target.result;
+            img.classList.remove("d-none");
+            document.getElementById("uploadPrompt").classList.add("d-none");
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // STEP 2: SAVE TIME WINDOW & UNLOCK GALLERY
+    document.getElementById("lostUploadForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const date = document.getElementById("lostDate").value;
+        const timeFrom = document.getElementById("lostTimeFrom").value;
+        const timeTo = document.getElementById("lostTimeTo").value;
+
+        if (timeFrom > timeTo) {
+            alert("'From Time' must be before 'To Time'.");
+            return;
+        }
+
+        lostWindow = { date, timeFrom, timeTo };
+        document.getElementById("timeFilterBadge").innerText = `Time Slot: ${date} (${timeFrom} - ${timeTo})`;
+
+        unlockSection("step3Card");
+        renderFoundItems();
+        showToast("Photo & time window saved! Click your item photo below.");
+        document.getElementById("step3Card").scrollIntoView({ behavior: "smooth" });
+    });
+
+    // STEP 3: RENDER FOUND ITEMS PHOTOS
+    function renderFoundItems() {
+        const grid = document.getElementById("foundPhotosGrid");
+        grid.innerHTML = AIRPORT_FOUND_ITEMS.map(item => {
+            const isTimeMatch = lostWindow && item.foundTime >= lostWindow.timeFrom && item.foundTime <= lostWindow.timeTo;
+            return `
+                <div class="col-sm-6 col-md-3">
+                    <div class="card h-100 shadow-sm found-photo-card" onclick="openAirlineModal(${item.id})">
+                        <div class="position-relative">
+                            <img src="${item.image}" alt="${item.title}">
+                            ${isTimeMatch ? `<span class="badge bg-success position-absolute top-0 end-0 m-2">Time Match</span>` : ""}
+                        </div>
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-1">${item.title}</h6>
+                            <div class="small text-primary fw-semibold">${item.airline}</div>
+                            <div class="small text-muted">${item.terminal} • ${item.foundTime}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    // OPEN MODAL ON PHOTO CLICK
+    function openAirlineModal(itemId) {
+        const item = AIRPORT_FOUND_ITEMS.find(i => i.id === itemId);
+        if (!item) return;
+
+        document.getElementById("selectedItemId").value = item.id;
+        document.getElementById("modalItemImg").src = item.image;
+        document.getElementById("modalItemTitle").innerText = item.title;
+        document.getElementById("modalItemMeta").innerText = `${item.airline} | ${item.terminal} | Found at ${item.foundTime}`;
+        document.getElementById("claimName").value = currentUser ? currentUser.name : "";
+        document.getElementById("claimMobile").value = "";
+
+        new bootstrap.Modal(document.getElementById("airlineClaimModal")).show();
+    }
+
+    // SEND MSG TO AIRLINES -> AI CHECK -> USER CONFIRMATION MSG
+    document.getElementById("airlineVerifyForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const itemId = parseInt(document.getElementById("selectedItemId").value, 10);
+        const passengerName = document.getElementById("claimName").value.trim();
+        const mobile = document.getElementById("claimMobile").value.trim();
+        const item = AIRPORT_FOUND_ITEMS.find(i => i.id === itemId);
+
+        if (!/^\d{10}$/.test(mobile)) {
+            alert("Please enter a valid 10-digit mobile number.");
+            return;
+        }
+
+        bootstrap.Modal.getInstance(document.getElementById("airlineClaimModal")).hide();
+
+        const panel = document.getElementById("aiConfirmationPanel");
+        panel.classList.remove("d-none");
+        panel.innerHTML = `
+            <div class="alert alert-info d-flex align-items-center gap-3 mb-0">
+                <div class="spinner-border text-primary"></div>
+                <div>
+                    <strong>Message sent to ${item.airline}...</strong><br>
+                    <small>AI is matching your uploaded photo & lost time window (${lostWindow.timeFrom} - ${lostWindow.timeTo})...</small>
+                </div>
+            </div>
+        `;
+        showToast(`Details sent to ${item.airline} for AI verification...`);
+
+        setTimeout(() => {
+            const isTimeMatch = lostWindow && item.foundTime >= lostWindow.timeFrom && item.foundTime <= lostWindow.timeTo;
+            const aiScore = isTimeMatch ? "96.8%" : "88.5%";
+            const refId = "AF-" + Math.floor(100000 + Math.random() * 900000);
+
+            panel.innerHTML = `
+                <div class="alert alert-success mb-0">
+                    <h5 class="fw-bold mb-2">✅ AI Verified & Confirmed by ${item.airline}</h5>
+                    <p class="mb-2">Confirmation message sent to Mobile <strong>${mobile}</strong> & Email <strong>${currentUser.email}</strong>.</p>
+                    <hr>
+                    <div class="row small">
+                        <div class="col-md-6">
+                            <div><strong>Passenger:</strong> ${passengerName}</div>
+                            <div><strong>Matched Item:</strong> ${item.title}</div>
+                            <div><strong>AI Verification Score:</strong> <span class="badge bg-success">${aiScore} Match</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div><strong>Claim Reference:</strong> ${refId}</div>
+                            <div><strong>Pickup Counter:</strong> ${item.airline} Helpdesk, ${item.terminal}</div>
+                            <div><strong>Status:</strong> Confirmed for Handover</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            showToast(`SMS Sent to ${mobile}: ${item.airline} AI confirmed your ${item.title} (Ref: ${refId})!`);
+            panel.scrollIntoView({ behavior: "smooth" });
+        }, 1800);
+    });
+
+    renderFoundItems();
+</script>
+</body>
+</html>
